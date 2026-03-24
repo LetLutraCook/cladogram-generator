@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Cladogram Generator</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; color: #333; }
+        h2 { color: #2c3e50; }
+        .controls { margin-bottom: 20px; }
+        button { 
+            padding: 8px 15px; margin-right: 5px; cursor: pointer; 
+            background-color: #3498db; color: white; border: none; border-radius: 4px;
+        }
+        button:hover { background-color: #2980b9; }
+        table { border-collapse: collapse; margin-bottom: 20px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        input[type="text"] { border: 1px solid #ccc; padding: 5px; border-radius: 3px; }
+        #tree-container { 
+            margin-top: 30px; padding: 20px; background: white; 
+            border: 1px solid #ccc; border-radius: 8px; min-height: 200px;
+        }
+        .tree-node {
+            margin-left: 40px; border-left: 2px solid #34495e;
+            padding-left: 15px; position: relative; margin-top: 10px;
+        }
+        .tree-node::before {
+            content: ""; position: absolute; top: 0; left: 0;
+            width: 15px; height: 2px; background: #34495e;
+        }
+        .species-label { font-weight: bold; color: #e67e22; }
+        .trait-label { font-size: 0.85em; color: #7f8c8d; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <h2>Cladogram Matrix Generator</h2>
+    
+    <div class="controls">
+        <button onclick="addSpecies()">+ Add Species</button>
+        <button onclick="addTrait()">+ Add Trait</button>
+        <button onclick="generateCladogram()" style="background-color: #27ae60;">Generate Cladogram</button>
+    </div>
+
+    <table id="matrix">
+        <thead>
+            <tr id="header-row">
+                <th>Species \ Traits</th>
+                <th><input type="text" value="Trait 1"></th>
+            </tr>
+        </thead>
+        <tbody id="matrix-body">
+            <tr>
+                <td><input type="text" value="Species A"></td>
+                <td><input type="checkbox"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div id="tree-container">
+        <p style="color: #999;">Your cladogram will appear here...</p>
+    </div>
+
+    <script>
+        function addSpecies() {
+            const tbody = document.getElementById('matrix-body');
+            const traitCount = document.getElementById('header-row').cells.length - 1;
+            const row = document.createElement('tr');
+            row.innerHTML = `<td><input type="text" value="New Species"></td>`;
+            for (let i = 0; i < traitCount; i++) {
+                row.innerHTML += `<td><input type="checkbox"></td>`;
+            }
+            tbody.appendChild(row);
+        }
+
+        function addTrait() {
+            const headerRow = document.getElementById('header-row');
+            const th = document.createElement('th');
+            th.innerHTML = `<input type="text" value="New Trait">`;
+            headerRow.appendChild(th);
+
+            const rows = document.getElementById('matrix-body').rows;
+            for (let i = 0; i < rows.length; i++) {
+                const td = document.createElement('td');
+                td.innerHTML = `<input type="checkbox">`;
+                rows[i].appendChild(td);
+            }
+        }
+
+        function generateCladogram() {
+            const container = document.getElementById('tree-container');
+            const rows = Array.from(document.getElementById('matrix-body').rows);
+            
+            // Parse data: Get species name and count of checked traits
+            let data = rows.map(row => {
+                const name = row.cells[0].querySelector('input').value;
+                const traitCount = Array.from(row.querySelectorAll('input[type="checkbox"]'))
+                                       .filter(cb => cb.checked).length;
+                return { name, traitCount };
+            });
+
+            // Sort species by trait count (simplest/outgroup first)
+            data.sort((a, b) => a.traitCount - b.traitCount);
+
+            if (data.length === 0) return;
+
+            // Generate HTML representation of the tree
+            container.innerHTML = "<h3>Resulting Cladogram:</h3>";
+            let currentLevel = container;
+            
+            data.forEach((item, index) => {
+                const node = document.createElement('div');
+                node.className = 'tree-node';
+                node.innerHTML = `<span class="species-label">${item.name}</span> 
+                                  <span class="trait-label">(${item.traitCount} traits)</span>`;
+                currentLevel.appendChild(node);
+                currentLevel = node; // Nest the next species to show derivation
+            });
+        }
+    </script>
+</body>
+</html>
