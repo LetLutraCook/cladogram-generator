@@ -2,121 +2,107 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Cladogram Generator</title>
+    <title>Phylogenetic Tree Generator</title>
     <style>
-        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f9; color: #333; }
-        h2 { color: #2c3e50; }
-        .controls { margin-bottom: 20px; }
-        button { 
-            padding: 8px 15px; margin-right: 5px; cursor: pointer; 
-            background-color: #3498db; color: white; border: none; border-radius: 4px;
-        }
-        button:hover { background-color: #2980b9; }
-        table { border-collapse: collapse; margin-bottom: 20px; background: white; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
-        input[type="text"] { border: 1px solid #ccc; padding: 5px; border-radius: 3px; }
-        #tree-container { 
-            margin-top: 30px; padding: 20px; background: white; 
-            border: 1px solid #ccc; border-radius: 8px; min-height: 200px;
-        }
-        .tree-node {
-            margin-left: 40px; border-left: 2px solid #34495e;
-            padding-left: 15px; position: relative; margin-top: 10px;
-        }
-        .tree-node::before {
-            content: ""; position: absolute; top: 0; left: 0;
-            width: 15px; height: 2px; background: #34495e;
-        }
-        .species-label { font-weight: bold; color: #e67e22; }
-        .trait-label { font-size: 0.85em; color: #7f8c8d; font-style: italic; }
+        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        textarea { width: 300px; height: 400px; font-family: monospace; }
+        canvas { background: white; border: 1px solid #ccc; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); }
+        .controls { margin-bottom: 10px; }
     </style>
 </head>
 <body>
 
-    <h2>Cladogram Matrix Generator</h2>
-    
+    <h2>Cladogram Generator</h2>
     <div class="controls">
-        <button onclick="addSpecies()">+ Add Species</button>
-        <button onclick="addTrait()">+ Add Trait</button>
-        <button onclick="generateCladogram()" style="background-color: #27ae60;">Generate Cladogram</button>
+        <button onclick="renderTree()">Generate Tree</button>
+        <small>Edit the JSON below to update the tree structure.</small>
     </div>
 
-    <table id="matrix">
-        <thead>
-            <tr id="header-row">
-                <th>Species \ Traits</th>
-                <th><input type="text" value="Trait 1"></th>
-            </tr>
-        </thead>
-        <tbody id="matrix-body">
-            <tr>
-                <td><input type="text" value="Species A"></td>
-                <td><input type="checkbox"></td>
-            </tr>
-        </tbody>
-    </table>
-
-    <div id="tree-container">
-        <p style="color: #999;">Your cladogram will appear here...</p>
+    <div class="container">
+        <textarea id="treeData">
+{
+  "name": "Life",
+  "children": [
+    {
+      "name": "Bacteria"
+    },
+    {
+      "name": "Archaea"
+    },
+    {
+      "name": "Eukaryota",
+      "children": [
+        { "name": "Protista" },
+        { "name": "Fungi" },
+        { "name": "Plantae" },
+        { "name": "Animalia" }
+      ]
+    }
+  ]
+}
+        </textarea>
+        <canvas id="treeCanvas" width="600" height="400"></canvas>
     </div>
 
     <script>
-        function addSpecies() {
-            const tbody = document.getElementById('matrix-body');
-            const traitCount = document.getElementById('header-row').cells.length - 1;
-            const row = document.createElement('tr');
-            row.innerHTML = `<td><input type="text" value="New Species"></td>`;
-            for (let i = 0; i < traitCount; i++) {
-                row.innerHTML += `<td><input type="checkbox"></td>`;
+        const canvas = document.getElementById('treeCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function renderTree() {
+            const rawData = document.getElementById('treeData').value;
+            let data;
+            try {
+                data = JSON.parse(rawData);
+            } catch (e) {
+                alert("Invalid JSON format!");
+                return;
             }
-            tbody.appendChild(row);
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const margin = 50;
+            const width = canvas.width - margin * 2;
+            const height = canvas.height - margin * 2;
+
+            drawNode(data, margin, margin, width, height);
         }
 
-        function addTrait() {
-            const headerRow = document.getElementById('header-row');
-            const th = document.createElement('th');
-            th.innerHTML = `<input type="text" value="New Trait">`;
-            headerRow.appendChild(th);
+        function drawNode(node, x, y, w, h) {
+            const isLeaf = !node.children || node.children.length === 0;
 
-            const rows = document.getElementById('matrix-body').rows;
-            for (let i = 0; i < rows.length; i++) {
-                const td = document.createElement('td');
-                td.innerHTML = `<input type="checkbox">`;
-                rows[i].appendChild(td);
+            // Draw horizontal branch line
+            ctx.beginPath();
+            ctx.moveTo(x, y + h / 2);
+            ctx.lineTo(x + 50, y + h / 2);
+            ctx.stroke();
+
+            if (isLeaf) {
+                // Draw name at the end of the branch
+                ctx.fillText(node.name, x + 55, y + h / 2 + 4);
+            } else {
+                const childCount = node.children.length;
+                const segmentH = h / childCount;
+
+                // Draw vertical connector line
+                const firstChildY = y + (segmentH / 2);
+                const lastChildY = y + h - (segmentH / 2);
+                
+                ctx.beginPath();
+                ctx.moveTo(x + 50, firstChildY);
+                ctx.lineTo(x + 50, lastChildY);
+                ctx.stroke();
+
+                // Recursively draw children
+                node.children.forEach((child, i) => {
+                    drawNode(child, x + 50, y + (i * segmentH), w - 50, segmentH);
+                });
             }
         }
 
-        function generateCladogram() {
-            const container = document.getElementById('tree-container');
-            const rows = Array.from(document.getElementById('matrix-body').rows);
-            
-            // Parse data: Get species name and count of checked traits
-            let data = rows.map(row => {
-                const name = row.cells[0].querySelector('input').value;
-                const traitCount = Array.from(row.querySelectorAll('input[type="checkbox"]'))
-                                       .filter(cb => cb.checked).length;
-                return { name, traitCount };
-            });
-
-            // Sort species by trait count (simplest/outgroup first)
-            data.sort((a, b) => a.traitCount - b.traitCount);
-
-            if (data.length === 0) return;
-
-            // Generate HTML representation of the tree
-            container.innerHTML = "<h3>Resulting Cladogram:</h3>";
-            let currentLevel = container;
-            
-            data.forEach((item, index) => {
-                const node = document.createElement('div');
-                node.className = 'tree-node';
-                node.innerHTML = `<span class="species-label">${item.name}</span> 
-                                  <span class="trait-label">(${item.traitCount} traits)</span>`;
-                currentLevel.appendChild(node);
-                currentLevel = node; // Nest the next species to show derivation
-            });
-        }
+        // Initial render
+        renderTree();
     </script>
 </body>
 </html>
