@@ -2,107 +2,125 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Phylogenetic Tree Generator</title>
+    <title>Advanced Tree Generator</title>
     <style>
-        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
-        .container { display: flex; gap: 20px; }
-        textarea { width: 300px; height: 400px; font-family: monospace; }
-        canvas { background: white; border: 1px solid #ccc; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); }
-        .controls { margin-bottom: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; }
+        .layout { display: flex; gap: 20px; width: 95%; max-width: 1200px; margin-top: 20px; }
+        textarea { flex: 1; height: 500px; font-family: monospace; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
+        canvas { background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); flex: 2; }
+        .toolbar { background: #333; color: white; width: 100%; padding: 15px; text-align: center; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #0056b3; }
     </style>
 </head>
 <body>
 
-    <h2>Cladogram Generator</h2>
-    <div class="controls">
-        <button onclick="renderTree()">Generate Tree</button>
-        <small>Edit the JSON below to update the tree structure.</small>
-    </div>
+<div class="toolbar">
+    <button onclick="renderTree()">Update Visualization</button>
+    <span style="margin-left:20px">Styles: "rectangular", "slanted", or "phylogenetic"</span>
+</div>
 
-    <div class="container">
-        <textarea id="treeData">
+<div class="layout">
+    <textarea id="treeData">
 {
-  "name": "Life",
+  "style": "slanted",
+  "name": "Vertebrates",
   "children": [
+    { "name": "Shark", "traits": ["Gills"] },
     {
-      "name": "Bacteria"
-    },
-    {
-      "name": "Archaea"
-    },
-    {
-      "name": "Eukaryota",
+      "name": "Tetrapods",
+      "traits": ["Four Limbs"],
       "children": [
-        { "name": "Protista" },
-        { "name": "Fungi" },
-        { "name": "Plantae" },
-        { "name": "Animalia" }
+        { "name": "Amphibians" },
+        {
+          "name": "Amniotes",
+          "traits": ["Amniotic Egg"],
+          "children": [
+            { "name": "Reptiles" },
+            { "name": "Mammals", "traits": ["Hair", "Milk"] }
+          ]
+        }
       ]
     }
   ]
 }
-        </textarea>
-        <canvas id="treeCanvas" width="600" height="400"></canvas>
-    </div>
+    </textarea>
+    <canvas id="treeCanvas" width="800" height="500"></canvas>
+</div>
 
-    <script>
-        const canvas = document.getElementById('treeCanvas');
-        const ctx = canvas.getContext('2d');
+<script>
+    const canvas = document.getElementById('treeCanvas');
+    const ctx = canvas.getContext('2d');
 
-        function renderTree() {
-            const rawData = document.getElementById('treeData').value;
-            let data;
-            try {
-                data = JSON.parse(rawData);
-            } catch (e) {
-                alert("Invalid JSON format!");
-                return;
-            }
+    function renderTree() {
+        const rawData = document.getElementById('treeData').value;
+        let data;
+        try { data = JSON.parse(rawData); } catch (e) { alert("JSON Error"); return; }
 
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            const margin = 50;
-            const width = canvas.width - margin * 2;
-            const height = canvas.height - margin * 2;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#333";
+        ctx.lineWidth = 2;
+        ctx.font = "12px Arial";
 
-            drawNode(data, margin, margin, width, height);
+        const style = data.style || "rectangular";
+        drawNode(data, 50, 50, canvas.width - 150, canvas.height - 100, style);
+    }
+
+    function drawNode(node, x, y, w, h, style) {
+        const isLeaf = !node.children || node.children.length === 0;
+        const midY = y + h / 2;
+
+        // Draw Traits
+        if (node.traits) {
+            ctx.fillStyle = "red";
+            ctx.font = "italic 10px Arial";
+            node.traits.forEach((trait, i) => {
+                ctx.fillText("━ " + trait, x + 10, midY - 10 - (i * 12));
+            });
+            ctx.fillStyle = "black";
+            ctx.font = "12px Arial";
         }
 
-        function drawNode(node, x, y, w, h) {
-            const isLeaf = !node.children || node.children.length === 0;
-
-            // Draw horizontal branch line
+        if (isLeaf) {
+            // Draw horizontal tip
             ctx.beginPath();
-            ctx.moveTo(x, y + h / 2);
-            ctx.lineTo(x + 50, y + h / 2);
+            ctx.moveTo(x, midY);
+            ctx.lineTo(x + 40, midY);
             ctx.stroke();
+            ctx.fillText(node.name, x + 45, midY + 4);
+        } else {
+            const childCount = node.children.length;
+            const stepH = h / childCount;
+            const nextX = (style === "phylogenetic") ? x + (w * 0.2) : x + 60;
 
-            if (isLeaf) {
-                // Draw name at the end of the branch
-                ctx.fillText(node.name, x + 55, y + h / 2 + 4);
-            } else {
-                const childCount = node.children.length;
-                const segmentH = h / childCount;
-
-                // Draw vertical connector line
-                const firstChildY = y + (segmentH / 2);
-                const lastChildY = y + h - (segmentH / 2);
-                
+            if (style === "rectangular" || style === "phylogenetic") {
+                // Horizontal stem
                 ctx.beginPath();
-                ctx.moveTo(x + 50, firstChildY);
-                ctx.lineTo(x + 50, lastChildY);
+                ctx.moveTo(x, midY);
+                ctx.lineTo(nextX, midY);
                 ctx.stroke();
-
-                // Recursively draw children
-                node.children.forEach((child, i) => {
-                    drawNode(child, x + 50, y + (i * segmentH), w - 50, segmentH);
+                // Vertical bar
+                ctx.beginPath();
+                ctx.moveTo(nextX, y + (stepH/2));
+                ctx.lineTo(nextX, y + h - (stepH/2));
+                ctx.stroke();
+            } else if (style === "slanted") {
+                // V-shape lines
+                node.children.forEach((_, i) => {
+                    ctx.beginPath();
+                    ctx.moveTo(x, midY);
+                    ctx.lineTo(nextX, y + (i * stepH) + (stepH/2));
+                    ctx.stroke();
                 });
             }
-        }
 
-        // Initial render
-        renderTree();
-    </script>
+            node.children.forEach((child, i) => {
+                drawNode(child, nextX, y + (i * stepH), w - (nextX - x), stepH, style);
+            });
+        }
+    }
+
+    renderTree();
+</script>
 </body>
 </html>
